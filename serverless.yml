@@ -49,7 +49,18 @@ functions:
       artifact: bin/api.zip
     events:
       # todo dia as 4h, 18h e 22h
-      - schedule: cron(0 4,18,22 * * ? *)
+      - schedule: 
+          rate: cron(0 4 * * ? *)
+          input:
+            body: '{"lookup_date": { "outbound_date": "2025-09-01", "return_date": "2025-09-10", "salty_days": 3 }, "departure_id": "CGH" }'
+      - schedule: 
+          rate: cron(0 18 * * ? *)
+          input:
+            body: '{"lookup_date": { "outbound_date": "2025-12-26", "return_date": "2026-01-06", "salty_days": 3 }, "departure_id": "CGH" }'
+      - schedule: 
+          rate: cron(0 22 * * ? *)
+          input:
+            body: '{"lookup_date": { "outbound_date": "2025-08-10", "return_date": "2025-08-20", "salty_days": 3 }, "departure_id": "CGH" }'
 
 resources:
   - Resources:

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"os"
 	"time"
 
@@ -41,23 +42,102 @@ func initDependencies() error {
 	return nil
 }
 
-func handler(ctx context.Context) (err error) {
-	parameter := map[string]string{
+type Input struct {
+	DepartureID string     `json:"departure_id"`
+	LookupDate  LookupDate `json:"lookup_date"`
+}
+
+type LookupDate struct {
+	OutboundDate string `json:"outbound_date"`
+	ReturnDate   string `json:"return_date"`
+	SaltyDays    int    `json:"salty_days"`
+}
+
+func (l LookupDate) OutboundDateParsed() time.Time {
+	t, err := time.Parse("2006-01-02", l.OutboundDate)
+	if err != nil {
+		return time.Now()
+	}
+	return t
+}
+
+func (l LookupDate) ReturnDateParsed() time.Time {
+	t, err := time.Parse("2006-01-02", l.ReturnDate)
+	if err != nil {
+		return time.Now()
+	}
+	return t
+}
+
+func (l LookupDate) AddSaltyDays() LookupDate {
+	addDays := randomBool()
+	daysToSwap := randomInt(0, l.SaltyDays)
+	if addDays {
+		return LookupDate{
+			OutboundDate: l.OutboundDateParsed().AddDate(0, 0, daysToSwap).Format("2006-01-02"),
+			ReturnDate:   l.ReturnDateParsed().AddDate(0, 0, daysToSwap).Format("2006-01-02"),
+			SaltyDays:    l.SaltyDays - daysToSwap,
+		}
+	}
+	return LookupDate{
+		OutboundDate: l.OutboundDateParsed().AddDate(0, 0, -daysToSwap).Format("2006-01-02"),
+		ReturnDate:   l.ReturnDateParsed().AddDate(0, 0, -daysToSwap).Format("2006-01-02"),
+		SaltyDays:    l.SaltyDays - daysToSwap,
+	}
+}
+
+func randomInt(min, max int) int {
+	return min + rand.Intn(max-min)
+}
+
+func randomBool() bool {
+	return rand.Intn(2) == 0
+}
+
+func handler(ctx context.Context, event map[string]any) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error(fmt.Sprintf("recovered: %v", r))
+			err = fmt.Errorf("recovered: %v", r)
+		}
+		if err != nil {
+			mail.SendErrorMail(err)
+		}
+	}()
+
+	b, err := json.Marshal(event["body"])
+	if err != nil {
+		slog.Error(err.Error())
+		return err
+	}
+
+	var input Input
+	err = json.Unmarshal(b, &input)
+	if err != nil {
+		slog.Error(err.Error())
+		return err
+	}
+
+	slog.Info(fmt.Sprintf("input: %s", toString(input)))
+	input.LookupDate = input.LookupDate.AddSaltyDays()
+	slog.Info(fmt.Sprintf("lookup date after salt: %s", toString(input.LookupDate)))
+
+	filters := map[string]string{
 		"engine":        "google_flights",
 		"hl":            "en",
 		"gl":            "br",
-		"departure_id":  "CGH",
+		"departure_id":  input.DepartureID,
 		"arrival_id":    "FOR",
-		"outbound_date": "2025-12-26",
-		"return_date":   "2026-01-06",
+		"outbound_date": input.LookupDate.OutboundDate,
+		"return_date":   input.LookupDate.ReturnDate,
 		"currency":      "BRL",
 		"sort_by":       "2",
 		"travel_class":  "1",
-		"adults":        "3",
+		"adults":        "2",
 		"children":      "1",
 	}
 
-	search := g.NewGoogleSearch(parameter, os.Getenv("API_KEY"))
+	search := g.NewGoogleSearch(filters, os.Getenv("API_KEY"))
 	results, err := search.GetJSON()
 	if err != nil {
 		slog.Error(err.Error())
@@ -127,7 +207,7 @@ func handler(ctx context.Context) (err error) {
 			return err
 		}
 
-		err = mail.SendMail(currentLowestPrice)
+		err = mail.SendMail(filters, input, currentLowestPrice)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error sending mail: %s", err.Error()))
 			return err
@@ -161,6 +241,19 @@ func main() {
 	if os.Getenv("AWS_LAMBDA_FUNCTION_NAME") != "" {
 		lambda.Start(handler)
 	} else {
-		handler(context.Background())
+		b, err := json.Marshal(map[string]any{
+			"departure_id": "CGH",
+			"lookup_date": map[string]any{
+				"outbound_date": "2025-09-10",
+				"return_date":   "2025-09-20",
+				"salty_days":    3,
+			},
+		})
+		if err != nil {
+			panic(err.Error())
+		}
+		handler(context.Background(), map[string]any{
+			"body": string(b),
+		})
 	}
 }
