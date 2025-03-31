@@ -116,9 +116,12 @@ func handler(ctx context.Context) (err error) {
 		slog.Error(fmt.Sprintf("error getting lowest price: %s", err.Error()))
 		return err
 	}
+	slog.Info(fmt.Sprintf("lowest price: %s", toString(lowestPrice)))
+
 	currentLowestPrice := flights.GetLowestPrice()
 	if lowestPrice == nil || currentLowestPrice.Price < lowestPrice.Price {
-		err = repo.SaveLowestPrice(ctx, flights.GetLowestPrice())
+		slog.Info(fmt.Sprintf("new lowest price: %s", toString(currentLowestPrice)))
+		err = repo.SaveLowestPrice(ctx, currentLowestPrice)
 		if err != nil {
 			slog.Error(fmt.Sprintf("error saving lowest price: %s", err.Error()))
 			return err

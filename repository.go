@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/smithy-go/ptr"
-	"github.com/google/uuid"
 )
 
 type FlightsWatcherRepository struct {
@@ -44,10 +42,9 @@ func (r *FlightsWatcherRepository) SaveFlight(ctx context.Context, flight *Fligh
 	}
 
 	attr[PK] = &types.AttributeValueMemberS{
-		Value: fmt.Sprintf("%s#%s#%s",
-			time.Now().Format(time.RFC3339),
+		Value: fmt.Sprintf("%s#%s",
 			FLIGHT,
-			uuid.New().String(),
+			flight.DepartueToken,
 		),
 	}
 	attr[SK] = &types.AttributeValueMemberS{
@@ -74,14 +71,13 @@ func (r *FlightsWatcherRepository) SaveLowestPrice(ctx context.Context, flight *
 	}
 
 	attr[PK] = &types.AttributeValueMemberS{
-		Value: fmt.Sprintf("%s#%s#%s",
-			time.Now().Format(time.RFC3339),
+		Value: fmt.Sprintf("%s#%s",
 			FLIGHT,
-			uuid.New().String(),
+			LOWEST_PRICE,
 		),
 	}
 	attr[SK] = &types.AttributeValueMemberS{
-		Value: LOWEST_PRICE,
+		Value: FLIGHT,
 	}
 
 	_, err = r.conn.PutItem(ctx, &dynamodb.PutItemInput{
@@ -97,31 +93,31 @@ func (r *FlightsWatcherRepository) SaveLowestPrice(ctx context.Context, flight *
 }
 
 func (r *FlightsWatcherRepository) GetLowestPrice(ctx context.Context) (*Flight, error) {
-	res, err := r.conn.Query(ctx, &dynamodb.QueryInput{
-		TableName:              ptr.String(r.tableName),
-		IndexName:              ptr.String(SK_INDEX),
-		KeyConditionExpression: ptr.String("#sk = :sk"),
-		ExpressionAttributeNames: map[string]string{
-			"#sk": SK,
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":sk": &types.AttributeValueMemberS{
-				Value: LOWEST_PRICE,
+	res, err := r.conn.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: ptr.String(r.tableName),
+		Key: map[string]types.AttributeValue{
+			PK: &types.AttributeValueMemberS{
+				Value: fmt.Sprintf("%s#%s",
+					FLIGHT,
+					LOWEST_PRICE,
+				),
+			},
+			SK: &types.AttributeValueMemberS{
+				Value: FLIGHT,
 			},
 		},
-		Limit: ptr.Int32(1),
 	})
 	if err != nil {
 		slog.Error(fmt.Sprintf("error querying: %s", err.Error()))
 		return nil, err
 	}
 
-	if len(res.Items) == 0 {
+	if res.Item == nil {
 		return nil, nil
 	}
 
 	var flight Flight
-	err = attributevalue.UnmarshalMap(res.Items[0], &flight)
+	err = attributevalue.UnmarshalMap(res.Item, &flight)
 	if err != nil {
 		slog.Error(fmt.Sprintf("error unmarshalling: %s", err.Error()))
 		return nil, err
