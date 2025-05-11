@@ -9,4 +9,4 @@ clean:
 	rm -rf ./bin
 
 deploy: clean build
-	serverless deploy --stage prd --verbose
+	sls deploy --stage prd --verbose

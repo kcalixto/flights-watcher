@@ -52,15 +52,15 @@ functions:
       - schedule: 
           rate: cron(0 4 * * ? *)
           input:
-            body: '{"lookup_date": { "outbound_date": "2025-09-01", "return_date": "2025-09-10", "salty_days": 3 }, "departure_id": "CGH" }'
+            body: '{"lookup_date": { "outbound_date": "2025-07-11", "return_date": "2025-07-29", "salty_days": 0 }, "departure_id": "CGH" }'
       - schedule: 
           rate: cron(0 18 * * ? *)
           input:
-            body: '{"lookup_date": { "outbound_date": "2025-12-26", "return_date": "2026-01-06", "salty_days": 3 }, "departure_id": "CGH" }'
+            body: '{"lookup_date": { "outbound_date": "2025-07-12", "return_date": "2025-07-28", "salty_days": 1 }, "departure_id": "CGH" }'
       - schedule: 
           rate: cron(0 22 * * ? *)
           input:
-            body: '{"lookup_date": { "outbound_date": "2025-08-10", "return_date": "2025-08-20", "salty_days": 3 }, "departure_id": "CGH" }'
+            body: '{"lookup_date": { "outbound_date": "2025-07-11", "return_date": "2025-07-29", "salty_days": 0 }, "departure_id": "GRU" }'
 
 resources:
   - Resources:

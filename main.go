@@ -105,14 +105,8 @@ func handler(ctx context.Context, event map[string]any) (err error) {
 		}
 	}()
 
-	b, err := json.Marshal(event["body"])
-	if err != nil {
-		slog.Error(err.Error())
-		return err
-	}
-
 	var input Input
-	err = json.Unmarshal(b, &input)
+	err = json.Unmarshal([]byte(event["body"].(string)), &input)
 	if err != nil {
 		slog.Error(err.Error())
 		return err
@@ -123,7 +117,8 @@ func handler(ctx context.Context, event map[string]any) (err error) {
 	slog.Info(fmt.Sprintf("lookup date after salt: %s", toString(input.LookupDate)))
 
 	filters := map[string]string{
-		"engine":        "google_flights",
+		"engine": "google_flights",
+		// "deep_search":   "true",
 		"hl":            "en",
 		"gl":            "br",
 		"departure_id":  input.DepartureID,
